@@ -15,76 +15,30 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================
 -->
-
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Accent Coach Audio</title>
-</head>
+<head><meta charset="UTF-8"></head>
 <body>
-    <audio id="tts-audio" style="display:none;"></audio>
+<script>
+window['ai_edge_gallery_get_result'] = async function(data, secret) {
+    try {
+        const params = JSON.parse(data);
+        const text = params.text;
+        const lang = params.lang || 'en';
+        if (!text) throw new Error('No text provided.');
 
-    <script>
-        // Try Web Speech API first (no internet needed), fall back to Google TTS
-        function speakWithWebSpeech(text, lang) {
-            return new Promise((resolve, reject) => {
-                if (!window.speechSynthesis) {
-                    reject(new Error('Web Speech API not available'));
-                    return;
-                }
-                const utter = new SpeechSynthesisUtterance(text);
-                utter.lang = lang === 'en' ? 'en-GB' : lang;
-                utter.rate = 0.85; // slightly slower for learning
-                utter.onend = resolve;
-                utter.onerror = (e) => reject(new Error('SpeechSynthesis error: ' + e.error));
-                window.speechSynthesis.cancel(); // clear queue
-                window.speechSynthesis.speak(utter);
-                // Timeout fallback
-                setTimeout(resolve, Math.max(4000, text.length * 100));
-            });
-        }
+        const encoded = encodeURIComponent(text);
+        const encodedLang = encodeURIComponent(lang);
+        const playerUrl = `../assets/player.html?text=${encoded}&lang=${encodedLang}`;
 
-        function speakWithGoogleTTS(text, lang) {
-            return new Promise((resolve, reject) => {
-                const encodedText = encodeURIComponent(text);
-                const ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodedText}&tl=${lang}&client=tw-ob`;
-                const audio = document.getElementById('tts-audio');
-                audio.src = ttsUrl;
-                audio.oncanplaythrough = () => { audio.play(); resolve(); };
-                audio.onerror = () => reject(new Error('Google TTS failed'));
-                setTimeout(() => reject(new Error('Google TTS timed out')), 8000);
-            });
-        }
-
-        window['ai_edge_gallery_get_result'] = async function(data, secret) {
-            try {
-                const params = JSON.parse(data);
-                const action = params.action;
-
-                if (action === 'play_audio') {
-                    const text = params.text;
-                    const lang = params.lang || 'en';
-                    if (!text) throw new Error('No text provided.');
-
-                    // Try Web Speech API first (offline), fall back to Google TTS
-                    try {
-                        await speakWithWebSpeech(text, lang);
-                        return JSON.stringify({ result: `Playing: "${text}"` });
-                    } catch (e) {
-                        // Fall back to Google TTS
-                        await speakWithGoogleTTS(text, lang);
-                        return JSON.stringify({ result: `Playing: "${text}"` });
-                    }
-                }
-
-                throw new Error(`Unknown action: ${action}`);
-
-            } catch (err) {
-                return JSON.stringify({ result: null, error: err.message });
-            }
-        };
-    </script>
+        return JSON.stringify({
+            result: `Tap play to hear: "${text}"`,
+            webview: { url: playerUrl, aspectRatio: 0.3 }
+        });
+    } catch (err) {
+        return JSON.stringify({ result: null, error: err.message });
+    }
+};
+</script>
 </body>
 </html>

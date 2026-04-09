@@ -1,0 +1,151 @@
+<!--
+@license
+Copyright 2026 Google LLC
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+==============================================================================
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>German Pronunciation Player</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            background: #1a1a2e;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 16px;
+        }
+        .player {
+            background: #16213e;
+            border-radius: 16px;
+            padding: 16px 20px;
+            width: 100%;
+            max-width: 400px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+        }
+        .play-btn {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: #e94560;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            transition: transform 0.1s, background 0.2s;
+        }
+        .play-btn:active { transform: scale(0.92); }
+        .play-btn.playing { background: #0f3460; }
+        .play-icon { width: 0; height: 0; border-style: solid; border-width: 9px 0 9px 16px; border-color: transparent transparent transparent #fff; margin-left: 3px; }
+        .pause-icon { display: none; width: 14px; height: 18px; border-left: 4px solid #fff; border-right: 4px solid #fff; }
+        .info { flex: 1; overflow: hidden; }
+        .text-label {
+            font-size: 15px;
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            color: #eee;
+        }
+        .lang-label { font-size: 12px; color: #888; margin-top: 3px; }
+        .replay-btn {
+            background: none;
+            border: 1px solid #444;
+            color: #aaa;
+            border-radius: 8px;
+            padding: 6px 10px;
+            font-size: 12px;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+        .replay-btn:active { background: #333; }
+    </style>
+</head>
+<body>
+<div class="player">
+    <button class="play-btn" id="playBtn" onclick="togglePlay()">
+        <div class="play-icon" id="playIcon"></div>
+        <div class="pause-icon" id="pauseIcon"></div>
+    </button>
+    <div class="info">
+        <div class="text-label" id="textLabel">Loading...</div>
+        <div class="lang-label" id="langLabel"></div>
+    </div>
+    <button class="replay-btn" onclick="replay()">↺ Replay</button>
+</div>
+
+<audio id="audio"></audio>
+
+<script>
+    const params = new URLSearchParams(window.location.search);
+    const text = params.get('text') || '';
+    const lang = params.get('lang') || 'de';
+
+    document.getElementById('textLabel').textContent = text;
+    document.getElementById('langLabel').textContent = lang === 'de' ? '🇩🇪 Deutsch' : lang === 'en' ? '🇬🇧 English' : lang;
+
+    const audio = document.getElementById('audio');
+    const playBtn = document.getElementById('playBtn');
+    const playIcon = document.getElementById('playIcon');
+    const pauseIcon = document.getElementById('pauseIcon');
+
+    function buildUrl(t, l) {
+        return `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(t)}&tl=${l}&client=tw-ob`;
+    }
+
+    audio.onended = () => setPlaying(false);
+    audio.onpause = () => setPlaying(false);
+    audio.onplay = () => setPlaying(true);
+
+    function setPlaying(isPlaying) {
+        playIcon.style.display = isPlaying ? 'none' : 'block';
+        pauseIcon.style.display = isPlaying ? 'block' : 'none';
+        playBtn.classList.toggle('playing', isPlaying);
+    }
+
+    function togglePlay() {
+        if (audio.paused) {
+            if (!audio.src) audio.src = buildUrl(text, lang);
+            audio.play();
+        } else {
+            audio.pause();
+        }
+    }
+
+    function replay() {
+        audio.currentTime = 0;
+        audio.src = buildUrl(text, lang);
+        audio.play();
+    }
+
+    // Auto-play on load
+    window.onload = () => {
+        audio.src = buildUrl(text, lang);
+        audio.play().catch(() => {});
+    };
+</script>
+</body>
+</html>
