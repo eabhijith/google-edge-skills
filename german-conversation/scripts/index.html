@@ -27,6 +27,37 @@ limitations under the License.
     <audio id="tts-audio" style="display:none;"></audio>
 
     <script>
+        // Try Web Speech API first (no internet needed), fall back to Google TTS
+        function speakWithWebSpeech(text, lang) {
+            return new Promise((resolve, reject) => {
+                if (!window.speechSynthesis) {
+                    reject(new Error('Web Speech API not available'));
+                    return;
+                }
+                const utter = new SpeechSynthesisUtterance(text);
+                utter.lang = lang === 'de' ? 'de-DE' : lang;
+                utter.rate = 0.8; // slower for German learners
+                utter.onend = resolve;
+                utter.onerror = (e) => reject(new Error('SpeechSynthesis error: ' + e.error));
+                window.speechSynthesis.cancel(); // clear queue
+                window.speechSynthesis.speak(utter);
+                // Timeout fallback
+                setTimeout(resolve, Math.max(4000, text.length * 100));
+            });
+        }
+
+        function speakWithGoogleTTS(text, lang) {
+            return new Promise((resolve, reject) => {
+                const encodedText = encodeURIComponent(text);
+                const ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodedText}&tl=${lang}&client=tw-ob`;
+                const audio = document.getElementById('tts-audio');
+                audio.src = ttsUrl;
+                audio.oncanplaythrough = () => { audio.play(); resolve(); };
+                audio.onerror = () => reject(new Error('Google TTS failed'));
+                setTimeout(() => reject(new Error('Google TTS timed out')), 8000);
+            });
+        }
+
         window['ai_edge_gallery_get_result'] = async function(data, secret) {
             try {
                 const params = JSON.parse(data);
@@ -35,35 +66,17 @@ limitations under the License.
                 if (action === 'play_audio') {
                     const text = params.text;
                     const lang = params.lang || 'de';
-
                     if (!text) throw new Error('No text provided.');
 
-                    // Use Google Translate TTS unofficial endpoint
-                    // Setting <audio> src bypasses CORS restriction on this endpoint
-                    const encodedText = encodeURIComponent(text);
-                    const ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodedText}&tl=${lang}&client=tw-ob`;
-
-                    const audio = document.getElementById('tts-audio');
-                    audio.src = ttsUrl;
-
-                    await new Promise((resolve, reject) => {
-                        audio.oncanplaythrough = () => {
-                            audio.play();
-                            resolve();
-                        };
-                        audio.onerror = () => reject(new Error('Audio failed to load. Check internet connection.'));
-                        // Timeout after 8 seconds
-                        setTimeout(() => reject(new Error('Audio timed out.')), 8000);
-                    });
-
-                    // Wait for playback to finish
-                    await new Promise((resolve) => {
-                        audio.onended = resolve;
-                        // Fallback: resolve after estimated duration
-                        setTimeout(resolve, Math.max(3000, text.length * 80));
-                    });
-
-                    return JSON.stringify({ result: `Playing: "${text}"` });
+                    // Try Web Speech API first (offline), fall back to Google TTS
+                    try {
+                        await speakWithWebSpeech(text, lang);
+                        return JSON.stringify({ result: `Playing: "${text}"` });
+                    } catch (e) {
+                        // Fall back to Google TTS
+                        await speakWithGoogleTTS(text, lang);
+                        return JSON.stringify({ result: `Playing: "${text}"` });
+                    }
                 }
 
                 throw new Error(`Unknown action: ${action}`);
